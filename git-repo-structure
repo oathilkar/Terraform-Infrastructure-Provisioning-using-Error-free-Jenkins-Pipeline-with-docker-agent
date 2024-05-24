@@ -1,0 +1,6 @@
+your-terraform-project/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── Jenkinsfile
+└── .gitignore
