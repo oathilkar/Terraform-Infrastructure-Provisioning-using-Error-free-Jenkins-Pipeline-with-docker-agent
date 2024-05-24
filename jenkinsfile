@@ -1,0 +1,66 @@
+pipeline {
+    agent {
+        docker {
+            image 'hashicorp/terraform:latest'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
+
+    environment {
+        TF_VAR_example = 'value' // Example of setting environment variables
+        AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', git 'https://github.com/your-repo/your-terraform-project.git'
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                sh 'terraform init'
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh 'terraform plan -out=plan.tfplan'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                script {
+                    def applyInput = input message: 'Approve the plan to apply changes?', ok: 'Apply', parameters: [booleanParam(defaultValue: false, description: 'Do you want to proceed?', name: 'Proceed')]
+                    if (applyInput) {
+                        sh 'terraform apply -auto-approve plan.tfplan'
+                    }
+                }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh 'rm -f plan.tfplan'
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: '**/*.tfplan', allowEmptyArchive: true
+            cleanWs()
+        }
+
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}
